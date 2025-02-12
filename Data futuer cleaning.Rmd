@@ -1,0 +1,193 @@
+---
+title: "Data fine cleaning"
+output: html_document
+date: "2025-02-10"
+---
+```{r}
+#note: The code here is for the futher cleaning data to better build the model. 
+
+
+
+```
+
+
+```{r setup, include=FALSE}
+#For the future people here, this code here is for the data cleanin process of the 2020 American National election selection data.
+
+#clean the enviroment
+rm(list = ls())
+
+library (lubridate)     #the time series processing package
+library (tsbox)         #Make time series convverstion, aggregation and plotting simple
+library (RColorBrewer)  #color palettes for R graphics
+library(wesanderson)    #Provides color palettes inspired by Wes Anderson films.
+library(writexl)        #Writes data frames to Excel files.
+library(tidyr)          #Tidies messy data   
+library(xts)            #Extensible time series class for R   
+library(dplyr)          #Data manipulation and transformation.
+library(openxlsx)       #Read, write, and edit Excel files.
+library(haven)          #the package can able lode the stata file
+
+```
+
+```{r cars}
+#lode the dataset
+raw <- read.csv("/Users/tie/Library/CloudStorage/GoogleDrive-brownlovecake2009@gmail.com/我的云端硬盘/Mac things/2025 winter/Data 5000/Data 5000 group project/The data cleaning work/data/cleaned_data.csv")
+
+```
+
+```{R}
+#display the dataset
+#head(raw)
+
+#rename the variable
+US_election <- raw %>% rename(
+ religion =  V201457x,
+ transgender_policy = V201411x, 
+ weight = V200010a,
+ tax_on_millionaries = V202325,
+ government_waste_tax_money = V201235,
+ edu = V201510,
+ edu_summary = V201511x,
+ party_hand_tax = V201242,
+ illegel_immiggration  = V201417,
+ Lgbgt_job_discrimination  =V201412, 
+ race = V201549x,
+ gay_marriaige = V201416, 
+ gay_adopt = V201415,
+ illegel_immmigtation_kid = V201421,
+ income = V202468x, 
+ trans_policy = V201410, 
+ spouse_gender = V201566
+ )
+
+print(US_election )
+
+```
+
+```{r fix religion}
+
+# Load necessary libraries
+library(ggplot2)
+
+# Load necessary library
+library(dplyr)
+
+# Calculate frequency distribution
+religion_counts <- table(US_election$religion)
+
+# Convert to percentage
+religion_percent <- prop.table(religion_counts) * 100
+
+# Create a data frame
+religion_df <- data.frame(
+  Religion = names(religion_counts),
+  Count = as.vector(religion_counts),
+  Percentage = round(as.vector(religion_percent), 2)  # Round for better readability
+)
+
+# Display the table
+print(religion_df)
+
+# Optional: Show table in a formatted way using knitr
+library(knitr)
+kable(religion_df, caption = "Percentage of Each Religion in US Election Dataset")
+
+```
+
+```{r}
+# =============================================================
+# Step 1. Define the codes for each of the five big categories.
+# -------------------------------------------------------------
+
+# (For ease, the leading zeros from your original codes are dropped,
+# so code "010" is represented as 10, "099" as 99, etc.)
+
+# 1. 基督教 (Christianity) 
+christian_codes <- c(
+  10, 99, 100, 101, 109, 110,       # e.g., Protestant, 7th Day Adventist, etc.
+  120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 149,
+  150, 155, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171,
+  180, 181, 182, 183, 184, 185, 186, 199, 200, 201, 219,
+  220, 221, 222, 224, 225, 229, 230, 787231, 232, 233, 234, 235, 240,
+  242, 243, 244, 245, 246, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258,
+  260, 261, 262, 263, 264, 267, 270, 271, 272, 275, 276, 279, 280, 281, 289,
+  290, 291, 292, 293, 300, 301, 303, 304, 305, 306,
+  400, 600,
+  700, 701, 702, 703, 704, 705, 706, 707, 708, 719   # e.g., Roman Catholic and various Orthodox denominations
+)
+
+# 2. 犹太教 (Judaism)
+jewish_codes <- c(
+  501, 502, 503, 524, 650   # e.g., Orthodox, Conservative, Reform, "Jewish, other" and Messianic Judaism
+)
+
+# 3. 伊斯兰教 (Islam)
+islam_codes <- c(
+  720   # Muslim; Islam
+)
+
+# 4. 其他宗教 (Other religions)
+other_religions_codes <- c(
+  695,   # More than 1 major religion (e.g., Christian, Jewish, Muslim, etc.)
+  721,   # Buddhist
+  722,   # Hindu
+  723,   # Baha'i; Bahai
+  724,   # American Indian religions; Native American religions
+  725,   # New Age
+  726,   # Wicca; Wiccan
+  727,   # Pagan
+  730,   # Sikh
+  732,   # Konko Church
+  735,   # Spiritualists (specifically "Spiritualism" or "Spiritualists")
+  736,   # Religious Science; Science of Mind; Centers for Spiritual Living
+  740,   # Other non-Christian / non-Jewish
+  750,   # Scientology
+  790,   # Religious / ethical cults
+  870,   # Other tradition not codeable to 010-790
+  879    # R indicates having an affiliation but does not specify
+)
+
+# 5. 不信教 (Nonreligious)
+nonreligious_codes <- c(
+  880,   # None
+  888,   # DK whether considers self as part of a particular religion
+  889    # RE to say if considers self as part of a particular religion
+)
+
+# =============================================================
+# Step 2. Create a function to recode a single religion code.
+# -------------------------------------------------------------
+recode_religion <- function(code) {
+  if (code %in% christian_codes) {
+    return("基督教")
+  } else if (code %in% jewish_codes) {
+    return("犹太教")
+  } else if (code %in% islam_codes) {
+    return("伊斯兰教")
+  } else if (code %in% other_religions_codes) {
+    return("其他宗教")
+  } else if (code %in% nonreligious_codes) {
+    return("不信教")
+  } else {
+    return(NA)  # If the code does not match any group, return NA
+  }
+}
+
+# =============================================================
+# Step 3. Vectorize the function so that it can handle a vector of codes.
+# -------------------------------------------------------------
+recode_religion_vec <- Vectorize(recode_religion)
+
+# =============================================================
+# Step 4. Test the function with some sample codes.
+# -------------------------------------------------------------
+# (Below is a sample vector including examples from different categories.)
+sample_codes <- c(10, 524, 720, 725, 880, 301, 502, 879)
+result <- recode_religion_vec(sample_codes)
+
+# Display the result as a data frame:
+print(data.frame(code = sample_codes, category = result))
+
+
+```

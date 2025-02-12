@@ -1,0 +1,259 @@
+---
+title: "The data pre cleaning"
+output: html_document
+date: "2025-02-06"
+---
+
+```{r setup, include=FALSE}
+#For the future people here, this code here is for the data cleanin process of the 2020 American National election selection data.
+
+#clean the enviroment
+rm(list = ls())
+
+library (lubridate)     #the time series processing package
+library (tsbox)         #Make time series convverstion, aggregation and plotting simple
+library (RColorBrewer)  #color palettes for R graphics
+library(wesanderson)    #Provides color palettes inspired by Wes Anderson films.
+library(writexl)        #Writes data frames to Excel files.
+library(tidyr)          #Tidies messy data   
+library(xts)            #Extensible time series class for R   
+library(dplyr)          #Data manipulation and transformation.
+library(openxlsx)       #Read, write, and edit Excel files.
+library(haven)          #the package can able lode the stata file
+
+````
+
+
+```{r}
+#Contents
+  #1.What data will be keep
+  #2.data cleanin process
+  #3.output the result in a excel file
+  #4.The data analysis will be in other file
+  #TIE 2025/02/06
+
+```
+
+```{R}
+#The data to keep
+
+#Type One: Self-Identify
+  #V201004 PRE: INTERVIEWER: IS R MALE OR FEMALE (OBSERVATION)
+  #V201013a PRE: What is the address where you are registered to vote now? (Optional, for state comparison)
+  #V201018 PRE: What political party are you registered with, if any?
+  #V201029 PRE: For whom did the respondent vote for President?
+  #V201549x PRE: Race/Ethnicity summary (self-identified)
+  #V201566 PRE: Respondent’s spouse/partner gender
+  #V201510 PRE: Highest level of education
+  #V201511x PRE: Summary of respondent’s education (5-category level)
+  #V201457x PRE: Full religion summary
+
+#Type Two: Family Income
+  #V202468x PRE-POST: Summary of total family income
+
+#Type Three: View on Tax Policy
+  #V202325 POST: Favor or oppose tax on millionaires
+  #V201235 PRE: Does the government waste much tax money?
+  #V201242 PRE: Which party is better at handling taxes?
+
+#Type Four: View on LGBTQ Issues
+  #V201412 PRE: Does the respondent favor/oppose laws protecting gays/lesbians against job discrimination?
+  #V201415 PRE: Should gay and lesbian couples be allowed to adopt?
+  #V201416 PRE: Respondent’s position on gay marriage
+  #V201410 PRE: Transgender policy (strength)
+  #V201411x PRE: Summary of transgender policy
+
+#Type Five: Illegal Immigration
+  #V201417 PRE: U.S. government policy toward unauthorized immigrants
+  #V201419 PRE: Favor or oppose ending birthright citizenship (strength)
+  #V201421 PRE: Should children brought illegally be sent back or allowed to stay?
+
+#Weight
+  #V200010a: Full sample pre-election weight
+
+```
+
+
+
+```{r lode the data}
+raw <- read_dta("/Users/tie/Library/CloudStorage/GoogleDrive-brownlovecake2009@gmail.com/我的云端硬盘/Mac things/2025 winter/Data 5000/Data 5000 group project/The data cleaning work/data/anes_timeseries_2020_stata_20220210.dta") 
+
+#check the data
+head(raw)
+```
+
+
+```{r select the necessary dataset}
+eleciton_data <- raw %>% 
+    select(
+      V201004, #PRE: INTERVIEWER: IS R MALE OR FEMALE (OBSERVATION)
+      V201013a, #PRE: What is the address where you are registered to vote now? (Optional, for state comparison)
+      V201018,  #PRE: What political party are you registered with, if any?
+      V201029,  #PRE: For whom did the respondent vote for President?
+      V201549x, #PRE: Race/Ethnicity summary (self-identified)
+      V201566,  #PRE: Respondent’s spouse/partner gender
+      V201510,  #PRE: Highest level of education
+      V201511x, #PRE: Summary of respondent’s education (5-category level)
+      V201457x, #PRE: Full religion summary
+#Type Two: Family Income
+      V202468x, #PRE-POST: Summary of total family income
+#Type Three: View on Tax Policy
+      V202325, #POST: Favor or oppose tax on millionaires
+      V201235, #PRE: Does the government waste much tax money?
+      V201242, #PRE: Which party is better at handling taxes?
+#Type Four: View on LGBTQ Issues
+      V201412, #PRE: Does the respondent favor/oppose laws protecting gays/lesbians against job discrimination?
+      V201415,  #PRE: Should gay and lesbian couples be allowed to adopt?
+      V201416,  #PRE: Respondent’s position on gay marriage
+      V201410,  #PRE: Transgender policy (strength)
+      V201411x, #PRE: Summary of transgender policy
+#Type Five: Illegal Immigration
+      V201417, #PRE: U.S. government policy toward unauthorized immigrants
+      V201419, #PRE: Favor or oppose ending birthright citizenship (strength)
+      V201421,  #PRE: Should children brought illegally be sent back or allowed to stay?
+#Weight
+      V200010a #Full sample pre-election weight
+)
+
+```
+
+```{R data checking function}
+find_refusals <- function(data) {
+  # Ensure data is a dataframe
+  if (!is.data.frame(data)) {
+    stop("Input data must be a dataframe.")
+  }
+  
+  # Count occurrences of -1 (some refusals)
+  negative_one_counts <- sapply(data, function(col) sum(col == -1, na.rm = TRUE))
+  
+  # Count occurrences of -9 (other refusals)
+  negative_nine_counts <- sapply(data, function(col) sum(col == -9, na.rm = TRUE))
+  
+  # Count occurrences of -8
+  negative_eight_counts <- sapply(data, function(col) sum(col == -8, na.rm = TRUE))
+  
+  # Total non-NA observations for each column
+  total_counts <- sapply(data, function(col) sum(!is.na(col)))  
+  
+  # Total refusals (-1 + -8 + -9)
+  total_refusals <- negative_one_counts + negative_nine_counts + negative_eight_counts
+  
+  # Calculate percentage of refusals (relative to total observations)
+  percentage_refusal <- (total_refusals / total_counts) * 100
+
+  # Convert to a dataframe for readability
+  result <- data.frame(
+    Variable = names(negative_one_counts),
+    Negative_One_Count = negative_one_counts,   # -1 refusals
+    Negative_Eight_Count = negative_eight_counts, # -8 refusals
+    Negative_Nine_Count = negative_nine_counts,  # -9 refusals
+    Total_Refusals = total_refusals,  # Total refusals (-1 + -8 + -9)
+    Percentage_Refusal = round(percentage_refusal, 2)  # Rounded to 2 decimal places
+  )
+  
+  # Sort by total refusals in descending order
+  result <- result[order(-result$Total_Refusals, decreasing = TRUE), ]
+  
+  return(result)
+}
+
+```
+
+```{r}
+# Run the function on election_data
+refusal_table <- find_refusals(eleciton_data)
+refusal_table
+
+
+```
+
+```{R the variable check}
+      V201004, #PRE: INTERVIEWER: IS R MALE OR FEMALE (OBSERVATION)  (-1)
+
+      V201013a, #PRE: What is the address where you are registered to vote now? (Optional, for state comparison) (-1)
+
+
+      V201018,  #PRE: What political party are you registered with, if any? (-1)
+
+
+      V201029,  #PRE: For whom did the respondent vote for President? (-1)
+
+      V201549x, #PRE: Race/Ethnicity summary (self-identified) (-8)
+
+      V201566,  #PRE: Respondent’s spouse/partner gender (-1)
+
+      V201510,  #PRE: Highest level of education (-8)
+
+      V201511x, #PRE: Summary of respondent’s education (5-category level)(-9)
+
+      V201457x, #PRE: Full religion summary(what the fuck? )
+
+
+#Type Two: Family Income()
+
+      V202468x, #PRE-POST: Summary of total family income(-9)
+
+#Type Three: View on Tax Policy
+      V202325, #POST: Favor or oppose tax on millionaires(-9)
+
+      V201235, #PRE: Does the government waste much tax money?(-9)
+
+      V201242, #PRE: Which party is better at handling taxes? (-9)
+
+
+#Type Four: View on LGBTQ Issues
+      V201412, #PRE: Does the respondent favor/oppose laws protecting gays/lesbians against job discrimination? (-9)
+
+      V201415,  #PRE: Should gay and lesbian couples be allowed to adopt? (-9)
+
+      V201416,  #PRE: Respondent’s position on gay marriage (-9)
+
+      V201410,  #PRE: Transgender policy (strength) (-9)
+
+      V201411x, #PRE: Summary of transgender policy (The different level of the hate trans gender basically)
+
+
+#Type Five: Illegal Immigration
+
+      V201417, #PRE: U.S. government policy toward unauthorized immigrants (-9)
+
+      V201419, #PRE: Favor or oppose ending birthright citizenship (strength) (-9)
+
+      V201421,  #PRE: Should children brought illegally be sent back or allowed to stay? (-9)
+
+
+#Weight
+      V200010a #Full sample pre-election weight
+)
+
+
+```
+
+```{r}
+#refusal_table
+
+# Step 1: Filter out variables with less than 20% refusals
+clean_data <- refusal_table %>%
+  filter(Percentage_Refusal <= 20)
+
+# Step 2: Extract variable names that meet the condition
+cleaning_data_set_variable <- clean_data$Variable
+
+# Step 3: Filter the original dataset (`election_data`) to keep only selected variables
+cleaned_data <- eleciton_data %>%
+  select(all_of(cleaning_data_set_variable))  # Use select() instead of filter()
+
+#output the clean data!
+write.csv(cleaned_data, "/Users/tie/Library/CloudStorage/GoogleDrive-brownlovecake2009@gmail.com/我的云端硬盘/Mac things/2025 winter/Data 5000/Data 5000 group project/The data cleaning work/data/cleaned_data.csv")
+```
+
+
+
+
+
+
+
+
+
+
