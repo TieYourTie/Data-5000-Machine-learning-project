@@ -27,12 +27,15 @@ library(xts)            #Extensible time series class for R
 library(dplyr)          #Data manipulation and transformation.
 library(openxlsx)       #Read, write, and edit Excel files.
 library(haven)          #the package can able lode the stata file
+library(readr)
+library(ggplot2)
+library(dplyr)
 
 ```
 
 ```{r cars}
 #lode the dataset
-raw <- read.csv("/Users/tie/Library/CloudStorage/GoogleDrive-brownlovecake2009@gmail.com/我的云端硬盘/Mac things/2025 winter/Data 5000/Data 5000 group project/The data cleaning work/data/cleaned_data.csv")
+raw <- read_csv("cleaned_data.csv")
 
 ```
 
@@ -66,12 +69,6 @@ print(US_election )
 ```
 
 ```{r fix religion}
-
-# Load necessary libraries
-library(ggplot2)
-
-# Load necessary library
-library(dplyr)
 
 # Calculate frequency distribution
 religion_counts <- table(US_election$religion)
