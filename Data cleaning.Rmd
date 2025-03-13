@@ -87,8 +87,14 @@ head(raw)
 ```{r select the necessary dataset}
 eleciton_data <- raw %>% 
     select(
+      #the varaibe related to the if the interviewer finish the suriver or not
+      V200004,
+      V200006,
+      V200008,
+      V200007,
+      V201007a, #VOTE SECTION - ORDER OF MAJOR PARTY
       V201004, #PRE: INTERVIEWER: IS R MALE OR FEMALE (OBSERVATION)
-      V201013a, #PRE: What is the address where you are registered to vote now? (Optional, for state comparison)
+      V201014b, #PRE: What is the address where you are registered to vote now? (Optional, for state comparison)
       V201018,  #PRE: What political party are you registered with, if any?
       V201029,  #PRE: For whom did the respondent vote for President?
       V201549x, #PRE: Race/Ethnicity summary (self-identified)
@@ -110,13 +116,31 @@ eleciton_data <- raw %>%
       V201411x, #PRE: Summary of transgender policy
 #Type Five: Illegal Immigration
       V201417, #PRE: U.S. government policy toward unauthorized immigrants
-      V201419, #PRE: Favor or oppose ending birthright citizenship (strength)
-      V201421,  #PRE: Should children brought illegally be sent back or allowed to stay?
+      #V201419, #PRE: Favor or oppose ending birthright citizenship (strength)
+      #V201421,  #PRE: Should children brought illegally be sent back or allowed to stay?
 #Weight
       V200010a #Full sample pre-election weight
 )
 
 ```
+
+
+```{r}
+
+# 删除身份验证失败的受访者
+# Step 1: Remove respondents who failed identity validation
+eleciton_data <- eleciton_data %>%
+  filter(V200006 != 2) %>%  # Remove respondents who are definitely NOT the selected person
+  filter(V200007 != 2 & V200007 != 3)  # Remove cases where pre and post-election respondents do not match
+
+# Step 2: Keep only respondents who completed both pre-election and post-election interviews
+eleciton_data <- eleciton_data %>%
+  filter(V200004 == 3)
+
+```
+
+
+
 
 ```{R data checking function}
 find_refusals <- function(data) {
@@ -246,7 +270,7 @@ cleaned_data <- eleciton_data %>%
   select(all_of(cleaning_data_set_variable))  # Use select() instead of filter()
 
 #output the clean data!
-write.csv(cleaned_data, "/Users/tie/Library/CloudStorage/GoogleDrive-brownlovecake2009@gmail.com/我的云端硬盘/Mac things/2025 winter/Data 5000/Data 5000 group project/The data cleaning work/data/cleaned_data.csv")
+write.csv(cleaned_data, "/Users/tie/Documents/GitHub/Data-5000-Machine-learning-project/cleaned_data.csv")
 ```
 
 
