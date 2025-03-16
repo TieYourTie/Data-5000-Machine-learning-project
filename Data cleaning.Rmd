@@ -86,8 +86,9 @@ head(raw)
 
 ```{r select the necessary dataset}
 eleciton_data <- raw %>% 
-    select(
-      #the varaibe related to the if the interviewer finish the suriver or not
+    dplyr::select(
+      V200010c,
+      V200010d,
       V200004,
       V200006,
       V200008,
@@ -102,25 +103,18 @@ eleciton_data <- raw %>%
       V201510,  #PRE: Highest level of education
       V201511x, #PRE: Summary of respondent’s education (5-category level)
       V201457x, #PRE: Full religion summary
-#Type Two: Family Income
       V202468x, #PRE-POST: Summary of total family income
-#Type Three: View on Tax Policy
       V202325, #POST: Favor or oppose tax on millionaires
       V201235, #PRE: Does the government waste much tax money?
       V201242, #PRE: Which party is better at handling taxes?
-#Type Four: View on LGBTQ Issues
       V201412, #PRE: Does the respondent favor/oppose laws protecting gays/lesbians against job discrimination?
       V201415,  #PRE: Should gay and lesbian couples be allowed to adopt?
       V201416,  #PRE: Respondent’s position on gay marriage
       V201410,  #PRE: Transgender policy (strength)
       V201411x, #PRE: Summary of transgender policy
-#Type Five: Illegal Immigration
       V201417, #PRE: U.S. government policy toward unauthorized immigrants
-      #V201419, #PRE: Favor or oppose ending birthright citizenship (strength)
-      #V201421,  #PRE: Should children brought illegally be sent back or allowed to stay?
-#Weight
       V200010a #Full sample pre-election weight
-)
+    )
 
 ```
 
@@ -259,15 +253,14 @@ refusal_table
 #refusal_table
 
 # Step 1: Filter out variables with less than 20% refusals
-clean_data <- refusal_table %>%
+clean_data <- refusal_table  %>%
   filter(Percentage_Refusal <= 20)
 
 # Step 2: Extract variable names that meet the condition
 cleaning_data_set_variable <- clean_data$Variable
 
 # Step 3: Filter the original dataset (`election_data`) to keep only selected variables
-cleaned_data <- eleciton_data %>%
-  select(all_of(cleaning_data_set_variable))  # Use select() instead of filter()
+cleaned_data <- eleciton_data %>% dplyr::select(all_of(cleaning_data_set_variable))  # Use select() instead of filter()
 
 #output the clean data!
 write.csv(cleaned_data, "/Users/tie/Documents/GitHub/Data-5000-Machine-learning-project/cleaned_data.csv")

@@ -7,7 +7,6 @@ date: "2025-02-10"
 #note: The code here is for the futher cleaning data to better build the model. 
 
 
-
 ```
 
 
@@ -62,29 +61,6 @@ US_election <- raw %>% rename(
  )
 
 print(US_election )
-
-```
-
-```{r fix religion}
-
-# Calculate frequency distribution
-religion_counts <- table(US_election$religion)
-
-# Convert to percentage
-religion_percent <- prop.table(religion_counts) * 100
-
-# Create a data frame
-religion_df <- data.frame(
-  Religion = names(religion_counts),
-  Count = as.vector(religion_counts),
-  Percentage = round(as.vector(religion_percent), 2)  # Round for better readability
-)
-
-# Display the table
-print(religion_df)
-
-# Optional: Show table in a formatted way using knitr
-kable(religion_df, caption = "Percentage of Each Religion in US Election Dataset")
 
 ```
 
@@ -230,29 +206,50 @@ US_election$transgender_policy<- factor(
 ```{R tax on the rish people}
 
 # Remove invalid responses
-US_election <- US_election[!US_election$tax_on_millionaries %in% c(-9, -8, -7, -6, -5), ]
+US_election <- US_election %>%
+  filter(!tax_on_millionaries %in% c(-9, -8, -7, -6, -5))
 
 # Convert TAX_MILLTAX to an ordered factor
-US_election$tax_on_millionaries <- factor(
-  US_election$tax_on_millionaries, 
-  levels = c(3, 2, 1),  # Keep it in an interpretable order
-  labels = c("Neither", "Oppose", "Favor"),
-  ordered = TRUE
-)
+US_election <- US_election %>%
+  mutate( tax_on_millionaries = factor(
+    tax_on_millionaries, 
+    levels = c(1, 2, 3),  # Ensure correct order
+    labels = c("Favor", "Oppose", "Neither"),
+    ordered = TRUE  # Make it an ordered factor
+  ))
+
+# Check factor levels
+levels(US_election$tax_on_millionaries)
+
+# View summary to confirm
+summary(US_election$tax_on_millionaries)
+
 
 ```
 
 ```{r government waste tax dollor }
-# Remove invalid responses
-US_election <- US_election[!US_election$government_waste_tax_money %in% c(-9, -8), ]
 
-# Convert government_waste_tax_money to an ordered factor
-US_election$government_waste_tax_money <- factor(
-  US_election$government_waste_tax_money, 
-  levels = c(3, 2, 1),  # Higher values indicate stronger belief in government efficiency
-  labels = c("Don't waste very much", "Waste some", "Waste a lot"),
-  ordered = TRUE  # Ordered factor for regression
-)
+
+# Remove invalid responses
+US_election <- US_election %>%
+  filter(!government_waste_tax_money%in% c(-9, -8))
+
+# Convert TRUSTGOV_WASTE to an ordered factor
+US_election <- US_election %>%
+  mutate(government_waste_tax_money = factor(
+    government_waste_tax_money, 
+    levels = c(1, 2, 3), 
+    labels = c("Waste a lot", "Waste some", "Don't waste very much"),
+    ordered = TRUE  # Ordered factor for regression analysis
+  ))
+
+# Check factor levels
+levels(US_election$government_waste_tax_money)
+
+# View summary
+summary(US_election$government_waste_tax_money)
+
+
 
 ```
 
@@ -349,7 +346,7 @@ summary(US_election$ Lgbgt_job_discrimination)
 # View first few rows to confirm cleaning
 head(US_election)
 
-````
+```
 
 ```{r race}
 
@@ -450,7 +447,6 @@ summary(US_election$income)
 
 # View first few rows to confirm cleaning
 head(US_election)
-)
 
 
 ```
@@ -465,7 +461,7 @@ data <- US_election
 categorical_vars <- c("transgender_policy", "tax_on_millionaries", "government_waste_tax_money", 
                       "edu_summary", "party_hand_tax", "illegel_immiggration", 
                       "Lgbgt_job_discrimination", "race", "gay_marriaige", "gay_adopt", 
-                      "income", "trans_policy", "religious_binary")
+                      "income", "transgender_policy", "religious_binary")
 
 # Loop to create bar plots for each categorical variable
 for (var in categorical_vars) {
@@ -487,39 +483,32 @@ for (var in categorical_vars) {
 
 ```{R Model 1: Two-Stage Ordinal Logistic Regression (Focus on Race)}
 
-US_election <- US_election %>% dplyr::select(-starts_with("V"))
+US_election_clean <- US_election %>% dplyr::select(-`...1`, -V200004, -V200006, -V200008, -V201007a, -V201566, -V201410, -V200007, -V201014b)
 
 
-# Ensure policy views are ordinal factors
-US_election$Y_Tax <- factor(US_election$tax_on_millionaries, ordered = TRUE)
-US_election$Y_LGBTQ <- factor(US_election$Lgbgt_job_discrimination, ordered = TRUE)
-US_election$Y_Immigration <- factor(US_election$illegel_immiggration, ordered = TRUE)
+#remove the NA value
+US_election_clean <- na.omit(US_election_clean)
 
 
-# Stage 1: Race only (Ordinal Logistic Regression)
-model1_stage1_tax <- polr(Y_Tax ~ race, data = US_election, weights = weight, Hess = TRUE)
-model1_stage1_lgbtq <- polr(Y_LGBTQ ~ race, data = US_election, weights = weight, Hess = TRUE)
-model1_stage1_immigration <- polr(Y_Immigration ~ race, data = US_election, weights = weight, Hess = TRUE)
+design <- svydesign(
+  id = ~V200010c,        # Primary Sampling Unit (PSU)
+  strata = ~V200010d,    # Stratification variable
+  weights = ~weight,   # Full sample post-election weight
+  data = US_election_clean,    # Your dataset
+  nest = TRUE            # Ensures PSU is correctly nested within strata
+)
 
-# Stage 2: Adding Income and Controls
-model1_stage2_tax <- polr(Y_Tax ~ race + income + religion + transgender_policy + edu_summary + party_hand_tax + religious_binary, 
-                          data = US_election, weights = weight, Hess = TRUE)
+design$variables$government_waste_tax_money <- as.numeric(design$variables$government_waste_tax_money)
+design$variables$race <- as.numeric(as.character(design$variables$race))
 
-model1_stage2_lgbtq <- polr(Y_LGBTQ ~ race + income + religion + transgender_policy + edu_summary + party_hand_tax + religious_binary, 
-                            data = US_election, weights = weight, Hess = TRUE)
 
-model1_stage2_immigration <- polr(Y_Immigration ~ race + income + religion + transgender_policy + edu_summary + party_hand_tax + religious_binary, 
-                                  data = US_election, weights = weight, Hess = TRUE)
+model1_stage1_tax <- svyglm(government_waste_tax_money ~ race, design = design, family = quasipoisson())
 
-# Summary of results
-summary(model1_stage1_tax)
-summary(model1_stage1_lgbtq)
-summary(model1_stage1_immigration)
-summary(model1_stage2_tax)
-summary(model1_stage2_lgbtq)
-summary(model1_stage2_immigration)
+
+
 
 
 ```
+
 
 
