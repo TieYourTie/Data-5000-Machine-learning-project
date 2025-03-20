@@ -3,12 +3,12 @@ title: "Data fine cleaning"
 output: html_document
 date: "2025-02-10"
 ---
+
 ```{r}
 #note: The code here is for the futher cleaning data to better build the model. 
 
 
 ```
-
 
 ```{r setup, include=FALSE}
 #For the future people here, this code here is for the data cleanin process of the 2020 American National election selection data.
@@ -62,9 +62,14 @@ US_election <- raw %>% rename(
 
 print(US_election )
 
+US_election <- US_election %>% dplyr::select(-`...1`, -V200004, -V200006, -V200008, -V201007a, -V201566, -V201410, -V200007, -V201014b)
+US_election <- na.omit(US_election)
+
 ```
 
 ```{r religion cleaning function}
+library(dplyr)
+
 # =============================================================
 # Step 1. Define religion codes for broad categories
 # -------------------------------------------------------------
@@ -83,34 +88,22 @@ christian_codes <- c(
 )
 
 # 2. Judaism
-jewish_codes <- c(
-  502, 503, 524, 650  # Orthodox, Conservative, Reform, Messianic Judaism
-)
+jewish_codes <- c(502, 503, 524, 650)
 
 # 3. Islam
-islam_codes <- c(
-  720  # Islam
-)
+islam_codes <- c(720)
 
 # 4. Eastern Religions
-eastern_religions_codes <- c(
-  721, 722, 723, 730, 732  # Buddhism, Hinduism, Baha'i, Sikhism, Konko Church
-)
+eastern_religions_codes <- c(721, 722, 723, 730, 732)
 
 # 5. Indigenous & New Religious Movements
-indigenous_new_religions_codes <- c(
-  724, 725, 726, 727, 735, 736, 740, 750, 790, 870, 879  # Native American religions, New Age, Wicca, Paganism, etc.
-)
+indigenous_new_religions_codes <- c(724, 725, 726, 727, 735, 736, 740, 750, 790, 870, 879)
 
 # 6. Other
-other_religions_codes <- c(
-  695  # Multiple religious affiliations
-)
+other_religions_codes <- c(695)
 
 # 7. Nonreligious
-nonreligious_codes <- c(
-  880, 888, 889  # No religion, unsure, refused to answer
-)
+nonreligious_codes <- c(880, 888, 889)
 
 # =============================================================
 # Step 2. Function to recode a single religion code
@@ -136,25 +129,25 @@ recode_religion <- function(code) {
 }
 
 # =============================================================
-# Step 3. Vectorized function for multiple codes
-# -------------------------------------------------------------
-recode_religion_vec <- Vectorize(recode_religion)
-
-# =============================================================
-# Step 4. Apply to dataset for cleaning
+# Step 3. Apply Cleaning Function to Data
 # -------------------------------------------------------------
 clean_religion_data <- function(df, religion_column) {
-  df[[religion_column]] <- recode_religion_vec(df[[religion_column]])  # Apply recoding
-  df[[religion_column]] <- factor(df[[religion_column]], levels = c(
-    "Christianity", "Judaism", "Islam", "Eastern Religions",
-    "Indigenous & New Religious Movements", "Other", "Nonreligious"
-  ))  # Convert to factor
+  df <- df %>%
+    mutate(
+      religion = recode_religion(.data[[religion_column]]),  # Apply function
+      religion = factor(religion, levels = c(
+        "Christianity", "Judaism", "Islam", "Eastern Religions",
+        "Indigenous & New Religious Movements", "Other", "Nonreligious"
+      )),
+      religious_binary = ifelse(religion == "Nonreligious", 0, 1)  # Create binary religion variable
+    ) %>%
+    select(-all_of(religion_column))  # Drop old religion code column
   
   return(df)
 }
 
 # =============================================================
-# Step 5. Test cleaning function
+# Step 4. Test Cleaning Function
 # -------------------------------------------------------------
 # Example dataset
 df_test <- data.frame(religion_code = c(10, 524, 720, 725, 880, 301, 502, 879))
@@ -164,26 +157,59 @@ df_test <- clean_religion_data(df_test, "religion_code")
 print(df_test)
 
 # =============================================================
-# Step 6. Optional: Convert to binary variable for logistic regression
+# Step 5. Apply to `US_election` Dataset
 # -------------------------------------------------------------
-# Example: Religious (1) vs. Nonreligious (0)
-df_test$religious_binary <- ifelse(df_test$religion_code == "Nonreligious", 0, 1)
+US_election <- clean_religion_data(US_election, "religion")
 
-# View binary classification
-print(df_test)
+# Remove missing values
+US_election <- na.omit(US_election)
+
+# Check results
+summary(US_election$religion)
+summary(US_election$religious_binary)
+
+
+
+# Group religion categories
+US_election <- US_election %>%
+  mutate(religion_grouped = religion) %>%  # Copy original religion column
+  mutate(religion_grouped = case_when(
+    religion %in% c("Judaism", "Islam", "Eastern Religions", 
+                    "Indigenous & New Religious Movements", "Other") ~ "Minority Religion",
+    TRUE ~ religion  # Keep Christianity & Nonreligious unchanged
+  )) %>%
+  mutate(religion_grouped = factor(religion_grouped, 
+                                   levels = c("Christianity", "Nonreligious", "Minority Religion")))
+
+# Remove missing values
+US_election <- na.omit(US_election)
+
+# Check results
+summary(US_election$religion_grouped)
+table(US_election$religion_grouped)
 
 ```
 
 ```{r clean the religion}
+
+US_election  <- US_election %>%
+  filter(if_all(-c(V200010c, V200010d, weight, religion), ~ . >= 0))
+
+
+
 #create new variable for religest and non-religoon
 US_election <- clean_religion_data(US_election, "religion")
 US_election$religious_binary <- ifelse(US_election$religion== "Nonreligious", 0, 1)
 
 #remove the na
 US_election <- US_election[!is.na(US_election$religious_binary), ]
+
+US_election <- na.omit(US_election)
 ```
 
 ```{r clean the view for the transgender policy}
+
+US_election
 
 # Convert the variable into an ordered factor
 US_election$transgender_policy<- factor(
@@ -200,6 +226,7 @@ US_election$transgender_policy<- factor(
   ordered = TRUE  # Ensures the variable is treated as ordered
 )
 
+US_election <- na.omit(US_election)
 
 ```
 
@@ -224,6 +251,7 @@ levels(US_election$tax_on_millionaries)
 # View summary to confirm
 summary(US_election$tax_on_millionaries)
 
+US_election <- na.omit(US_election)
 
 ```
 
@@ -249,7 +277,7 @@ levels(US_election$government_waste_tax_money)
 # View summary
 summary(US_election$government_waste_tax_money)
 
-
+US_election <- na.omit(US_election)
 
 ```
 
@@ -266,7 +294,7 @@ summary(US_election$government_waste_tax_money)
 # Check summary
 summary(US_election$edu_summary)
 
-
+US_election <- na.omit(US_election)
 ```
 
 ```{R}
@@ -282,7 +310,7 @@ summary(US_election$edu_summary)
 # Check summary
 summary( US_election$party_hand_tax)
 
-
+US_election <- na.omit(US_election)
 
 ```
 
@@ -302,7 +330,7 @@ summary( US_election$illegel_immiggration)
 # View first few rows to confirm cleaning
 head( US_election)
 
-
+US_election <- na.omit(US_election)
 
 
 ```
@@ -327,6 +355,8 @@ summary(US_election$illegel_immiggration)
 # View first few rows to confirm cleaning
 head(US_election)
 
+US_election <- na.omit(US_election)
+
 ```
 
 ```{r  Lgbgt_job_discrimination}
@@ -346,6 +376,7 @@ summary(US_election$ Lgbgt_job_discrimination)
 # View first few rows to confirm cleaning
 head(US_election)
 
+US_election <- na.omit(US_election)
 ```
 
 ```{r race}
@@ -369,6 +400,7 @@ summary(US_election$race)
 # View first few rows to confirm cleaning
 head(US_election)
 
+US_election <- na.omit(US_election)
 ```
 
 ```{R}
@@ -395,16 +427,25 @@ US_election$ gay_marriaige <- factor(US_election$gay_marriaige,
                                                "No Recognition"),
                                     ordered = TRUE)
 
-
+US_election <- na.omit(US_election)
 
 ```
 
 ```{r}
 
-# Clean income variable in US_election dataset
+# Ensure income is numeric and keep only valid values (1-22)
 US_election <- US_election %>%
-  mutate(income = as.numeric(income)) %>%  # Convert to numeric
-  filter(income >= 1 & income <= 22)  # Keep only valid income values
+  mutate(income = as.numeric(income)) %>%
+  filter(income >= 1 & income <= 22)
+
+# Create income groups for analysis
+US_election <- US_election %>%
+  mutate(
+    income_grouped = cut(income, 
+                         breaks = c(1, 5, 10, 15, 20, 22),  # Define group boundaries
+                         labels = c("Low", "Lower-Mid", "Mid", "Upper-Mid", "High"), 
+                         include.lowest = TRUE)
+  )
 
 # Convert to ordered factor for ordinal regression
 US_election$income <- factor(US_election$income, 
@@ -419,38 +460,16 @@ US_election$income <- factor(US_election$income,
                                         "$250,000 or more"),
                              ordered = TRUE)
 
-# Check summary
-summary(US_election$income)
-
-# View first few rows to confirm cleaning
-
-# Clean income variable in US_election dataset
-US_election <- US_election %>%
-  mutate(income = as.numeric(income)) %>%  # Convert to numeric
-  filter(income >= 1 & income <= 22)  # Keep only valid income values
-
-# Convert to ordered factor for ordinal regression
-US_election$income <- factor(US_election$income, 
-                             levels = 1:22, 
-                             labels = c("Under $9,999", "$10,000-$14,999", "$15,000-$19,999",
-                                        "$20,000-$24,999", "$25,000-$29,999", "$30,000-$34,999",
-                                        "$35,000-$39,999", "$40,000-$44,999", "$45,000-$49,999",
-                                        "$50,000-$59,999", "$60,000-$64,999", "$65,000-$69,999",
-                                        "$70,000-$74,999", "$75,000-$79,999", "$80,000-$89,999",
-                                        "$90,000-$99,999", "$100,000-$109,999", "$110,000-$124,999",
-                                        "$125,000-$149,999", "$150,000-$174,999", "$175,000-$249,999",
-                                        "$250,000 or more"),
-                             ordered = TRUE)
+# Remove missing values
+US_election <- na.omit(US_election)
 
 # Check summary
 summary(US_election$income)
+summary(US_election$income_grouped)
 
-# View first few rows to confirm cleaning
+# View first few rows
 head(US_election)
-
-
 ```
-
 
 ```{r}
 
@@ -483,32 +502,47 @@ for (var in categorical_vars) {
 
 ```{R Model 1: Two-Stage Ordinal Logistic Regression (Focus on Race)}
 
-US_election_clean <- US_election %>% dplyr::select(-`...1`, -V200004, -V200006, -V200008, -V201007a, -V201566, -V201410, -V200007, -V201014b)
-
 
 #remove the NA value
-US_election_clean <- na.omit(US_election_clean)
+US_election <- na.omit(US_election)
+
+US_election$income_grouped <- cut(US_election$income,  breaks = 5, labels = c("Low", "Lower-Mid", "Mid", "Upper-Mid", "High"))
+
+US_election$religion_grouped <- US_election$religion
+US_election$religion_grouped[US_election$religion %in% c("Judaism", "Islam", "Eastern Religions", 
+                                                         "Indigenous & New Religious Movements", "Other")] <- "Minority Religion"
+
+
+
+table(US_election$race, US_election$religion)
 
 
 design <- svydesign(
   id = ~V200010c,        # Primary Sampling Unit (PSU)
   strata = ~V200010d,    # Stratification variable
   weights = ~weight,   # Full sample post-election weight
-  data = US_election_clean,    # Your dataset
+  data = US_election,    # Your dataset
   nest = TRUE            # Ensures PSU is correctly nested within strata
 )
 
-design$variables$government_waste_tax_money <- as.numeric(design$variables$government_waste_tax_money)
-design$variables$race <- as.numeric(as.character(design$variables$race))
 
 
-model1_stage1_tax <- svyglm(government_waste_tax_money ~ race, design = design, family = quasipoisson())
+model1_stage1_tax <- svyolr(government_waste_tax_money ~ race, design = design)
+model1_stage2_tax <- svyolr(government_waste_tax_money ~ 
+                              race + 
+                              religion +
+                              tax_on_millionaries + 
+                              edu_summary +
+                              party_hand_tax + 
+                              income, design = design)
+
+library(car)
+vif_values <- vif(model1_stage2_tax)
+print(vif_values)
+
 
 
 
 
 
 ```
-
-
-
