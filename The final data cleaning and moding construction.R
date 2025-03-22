@@ -24,6 +24,7 @@ library(readr)
 library(ggplot2)
 library(dplyr)
 library(survey)
+library(ggthemes)
 
 ####lode the data######
 raw <- read_csv("cleaned_data.csv")
@@ -375,7 +376,7 @@ US_election$LGBT_friendly_group <- cut(
 #remove the NA's
  na.omit(US_election$LGBT_friendly_group)
 
-#########
+############################################################################
 #8. Income##############################
 # Ensure income is numeric and keep only valid values (1-22)
 US_election <- US_election %>%
@@ -395,10 +396,7 @@ US_election <- na.omit(US_election)
 summary(US_election$income_grouped)
 
 ##############################
-
-
-#################################################################################
-# Define the dataset (replace `US_election` with your actual dataset name)
+#9.plot_the_graphy###############################
 data <- US_election  
 
 # List of categorical variables to plot
@@ -422,44 +420,45 @@ for (var in categorical_vars) {
   }
 }
 
+################################################
+#10.race!###########################################
+
+
+# Clean race variable in US_election dataset
+US_election <- US_election %>%
+  mutate(race = as.numeric(race)) %>%  # Convert to numeric
+  filter(race >= 1 & race <= 6)  # Keep only valid values
+
+# Convert to a factor for categorical analysis
+US_election$race <- factor(US_election$race, 
+                           levels = 1:6, 
+                           labels = c("White", "Black", "Hispanic", 
+                                      "Asian/Pacific Islander", 
+                                      "Native American/Alaska Native", 
+                                      "Multiple Races"))
+
+# Check summary
+summary(US_election$race)
+
+# View first few rows to confirm cleaning
+head(US_election)
+
+US_election <- na.omit(US_election)
+
+
+################################################
 
 
 
-US_election$trans_support_score <- as.numeric(factor(
-  US_election$transgender_policy,
-  levels = c("Very Strongly Against", "Moderately Against", "Slightly Against",
-             "Slightly In Favor", "Moderately In Favor", "Very Strongly In Favor"),
-  labels = c(1, 2, 3, 4, 5, 6)
-))
-
-US_election$gay_marriage_score <- dplyr::recode(US_election$gay_marriaige,
-                                                "No Recognition" = 0,
-                                                "Civil Union Only" = 1,
-                                                "Legal Marriage" = 2)
-
-#transfer it to the number
-US_election$trans_support_score <- as.numeric(as.character(US_election$trans_support_score))
-US_election$job_discrim_score <- as.numeric(as.character(US_election$Lgbgt_job_discrimination))
-US_election$gay_marriage_score <- as.numeric(as.character(US_election$gay_marriage_score))
-US_election$gay_adopt_score <- as.numeric(as.character(US_election$gay_adopt))
-
-
-
-
-
-table(US_election$LGBT_friendly_group)
-hist(US_election$LGBT_friendly, breaks = 10, main = "LGBT Support Score")
-
-
-
-
-
+#10.The model construction######################
 
 #remove the NA value
 US_election <- na.omit(US_election)
 
 table(US_election$race, US_election$religion_group)
 
+#note:here is using the package called Svyry which is a shit package designed 
+#for the survery data? god bless me
 
 design <- svydesign(
   id = ~V200010c,        # Primary Sampling Unit (PSU)
@@ -468,10 +467,20 @@ design <- svydesign(
   data = US_election,    # Your dataset
   nest = TRUE            # Ensures PSU is correctly nested within strata
 )
+##################################################
+##model_one_race###########
+#list all the variable
+  #tax_on_millionaries
+  #government_waste_tax_money
+  #edu_summary
+  #party_hand_tax
+  #illegel_immiggration
+  #race
+  #income_grouped
+  #LGBT_friendly_group
+  #religion_group
 
-```
-
-```{R}
+#########
 #The_stage_one
 model1_stage1_tax <- svyolr(government_waste_tax_money ~ race, design = design)
 
@@ -485,7 +494,9 @@ model1_stage2_tax <- svyolr(government_waste_tax_money ~
                               edu_summary +
                               party_hand_tax_group + 
                               income_grouped +
-                              illegel_immiggration, design = design)
+                              illegel_immiggration +
+                              LGBT_friendly_group, 
+                            design = design)
 
 
 summary(model1_stage1_tax)
@@ -493,32 +504,198 @@ summary(model1_stage2_tax)
 #note: the race has the impact but not a lot
 
 
-######
+################################################################################
+
 #regression_two race vs LGBTQ
-model2_stage1_LGBTQ_trans <-
+model2_stage1_LGBTQ_trans <- svyolr(LGBT_friendly_group ~ race, design = design)
+
+
+model2_stage2_LGBTQ_trans  <- svyolr(LGBT_friendly_group ~ 
+                                       race + 
+                                       religion_group +
+                                       tax_on_millionaries + 
+                                       edu_summary +
+                                       party_hand_tax_group + 
+                                       income_grouped +
+                                       illegel_immiggration +
+                                       government_waste_tax_money,
+                                     design = design)
+
+#####The income group############################################################
+
+#The_stage_one
+model3_stage1_income <- svyolr(government_waste_tax_money ~ income_grouped, design = design)
+
+#
+
+#the_stage_two
+model3_stage2_income <- svyolr(government_waste_tax_money ~ 
+                                 race + 
+                                 religion_group +
+                                 tax_on_millionaries + 
+                                 edu_summary +
+                                 party_hand_tax_group + 
+                                 income_grouped +
+                                 illegel_immiggration +
+                                 LGBT_friendly_group, 
+                               design = design)
+
+
+summary(model1_stage1_tax)
+summary(model1_stage2_tax)
+############
+
+
+
+# Get coefficients
+race_stage1 <- coef(model1_stage1_tax)[grep("^race", names(coef(model1_stage1_tax)))]
+race_stage2 <- coef(model1_stage2_tax)[grep("^race", names(coef(model1_stage2_tax)))]
+
+# Create data frame
+race_effects <- data.frame(
+  Race_Group = gsub("race", "", names(race_stage1)),
+  Stage1 = as.numeric(race_stage1),
+  Stage2 = as.numeric(race_stage2)
+)
+
+# Reshape for plotting
+race_long <- pivot_longer(race_effects, cols = c(Stage1, Stage2), names_to = "Model", values_to = "Coefficient")
+
+ggplot(race_long, aes(x = Race_Group, y = Coefficient, fill = Model)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7), width = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  labs(title = "Race Effects on Perceptions of Government Waste",
+       subtitle = "Ordinal Logistic Regression (Stage 1 vs Stage 2)",
+       x = "Race Group", y = "Coefficient Estimate") +
+  theme_economist() +
+  scale_fill_economist()
+
+
+
+# Extract coefficients
+income_stage1 <- coef(model3_stage1_income)[grep("^income_grouped", names(coef(model3_stage1_income)))]
+income_stage2 <- coef(model3_stage2_income)[grep("^income_grouped", names(coef(model3_stage2_income)))]
+
+# Combine into a data frame
+income_effects_tax <- data.frame(
+  Income_Group = gsub("income_grouped", "", names(income_stage1)),
+  Stage1 = as.numeric(income_stage1),
+  Stage2 = as.numeric(income_stage2)
+)
+
+# Reshape for plotting
+income_long_tax <- pivot_longer(income_effects_tax, cols = c(Stage1, Stage2), names_to = "Model", values_to = "Coefficient")
+
+
+
+ggplot(income_long_tax, aes(x = Income_Group, y = Coefficient, fill = Model)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7), width = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  labs(title = "Income Effects on Perceptions of Government Waste",
+       subtitle = "Ordinal Logistic Regression (Stage 1 vs Stage 2)",
+       x = "Income Group", y = "Coefficient Estimate") +
+  theme_economist() +
+  scale_fill_economist()
+
+
+
+################################################################################
+
+#regression_two race vs LGBTQ
+model2_stage1_LGBTQ_trans <- svyolr(LGBT_friendly_group ~ race, design = design)
   
   
-  
-  
-  
-  # List of categorical variables to plot
-  categorical_vars <- c("transgender_policy", "tax_on_millionaries", "government_waste_tax_money", 
-                        "edu_summary", "party_hand_tax", "illegel_immiggration", 
-                        "Lgbgt_job_discrimination", "race", "gay_marriaige", "gay_adopt", 
-                        "income", "transgender_policy", "religious_binary", "religions_group")
+model2_stage2_LGBTQ_trans  <- svyolr(LGBT_friendly_group ~ 
+                              race + 
+                              religion_group +
+                              tax_on_millionaries + 
+                              edu_summary +
+                              party_hand_tax_group + 
+                              income_grouped +
+                              illegel_immiggration +
+                              government_waste_tax_money,
+                            design = design)
+
+#####The income group############################################################
+
+#The_stage_one
+model3_stage1_income <- svyolr(government_waste_tax_money ~ income_grouped, design = design)
+
+#
+
+#the_stage_two
+model3_stage2_income <- svyolr(government_waste_tax_money ~ 
+                              race + 
+                              religion_group +
+                              tax_on_millionaries + 
+                              edu_summary +
+                              party_hand_tax_group + 
+                              income_grouped +
+                              illegel_immiggration +
+                              LGBT_friendly_group, 
+                            design = design)
+
+
+summary(model1_stage1_tax)
+summary(model1_stage2_tax)
+#note: the race has the impact but not a lot
+
+
+################################################################################
+
+#regression_two income vs LGBTQ
+model3_stage1_LGBTQ_income <- svyolr(LGBT_friendly_group ~ income_grouped, design = design)
+
+model3_stage2_LGBTQ_income  <- svyolr(LGBT_friendly_group ~ 
+                                        race + 
+                                        religion_group +
+                                        tax_on_millionaries + 
+                                        edu_summary +
+                                        party_hand_tax_group + 
+                                        income_grouped +
+                                        illegel_immiggration +
+                                        government_waste_tax_money,
+                                      design = design)
+
+
+# Extract coefficients
+coef_stage1 <- coef(model3_stage1_LGBTQ_income)
+coef_stage2 <- coef(model3_stage2_LGBTQ_income)
+
+# Filter only income-related terms
+income_stage1 <- coef_stage1[grep("^income_grouped", names(coef_stage1))]
+income_stage2 <- coef_stage2[grep("^income_grouped", names(coef_stage2))]
+
+
+# You should already have this:
+income_effects <- data.frame(
+  Income_Group = gsub("income_grouped", "", names(income_stage1)),
+  Stage1 = as.numeric(income_stage1),
+  Stage2 = as.numeric(income_stage2)
+)
+
+print(income_effects)
+
+
+# Optional: Reshape data for ggplot2
+library(tidyr)
+library(dplyr)
+
+income_long <- income_effects %>%
+  pivot_longer(cols = c(Stage1, Stage2), names_to = "Model", values_to = "Coefficient")
+
+library(ggplot2)
+
+ggplot(income_long, aes(x = Income_Group, y = Coefficient, fill = Model)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7), width = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  labs(title = "Effect of Income Group on LGBT Support",
+       subtitle = "Ordinal Logistic Regression Coefficients (Stage 1 vs Stage 2)",
+       x = "Income Group",
+       y = "Coefficient Estimate",
+       fill = "Model") +
+  theme_minimal(base_size = 14)
 
 
 
 
-library(car)
-
-#robusted test
-vif_values <- vif(model1_stage2_tax)
-print(vif_values)
-
-
-
-
-
-
-```

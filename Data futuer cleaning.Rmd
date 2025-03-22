@@ -6,7 +6,7 @@ date: "2025-02-10"
 
 ```{r}
 #note: The code here is for the futher cleaning data to better build the model. 
-
+#v0.2 update the religion code, update education and update income
 
 ```
 
@@ -29,11 +29,12 @@ library(haven)          #the package can able lode the stata file
 library(readr)
 library(ggplot2)
 library(dplyr)
-library(MASS)
+#library(MASS)
+library(survey)
 
 ```
 
-```{r cars}
+```{r}
 #lode the dataset
 raw <- read_csv("cleaned_data.csv")
 
@@ -68,13 +69,10 @@ US_election <- na.omit(US_election)
 ```
 
 ```{r religion cleaning function}
-library(dplyr)
 
 # =============================================================
 # Step 1. Define religion codes for broad categories
 # -------------------------------------------------------------
-
-# 1. Christianity
 christian_codes <- c(
   10, 99, 100, 101, 109, 110,
   120:136, 149, 150, 155, 160:171,
@@ -86,27 +84,15 @@ christian_codes <- c(
   400, 600,
   700:708, 719
 )
-
-# 2. Judaism
 jewish_codes <- c(502, 503, 524, 650)
-
-# 3. Islam
 islam_codes <- c(720)
-
-# 4. Eastern Religions
 eastern_religions_codes <- c(721, 722, 723, 730, 732)
-
-# 5. Indigenous & New Religious Movements
 indigenous_new_religions_codes <- c(724, 725, 726, 727, 735, 736, 740, 750, 790, 870, 879)
-
-# 6. Other
 other_religions_codes <- c(695)
-
-# 7. Nonreligious
 nonreligious_codes <- c(880, 888, 889)
 
 # =============================================================
-# Step 2. Function to recode a single religion code
+# Step 2. Single-Code Recoding Function
 # -------------------------------------------------------------
 recode_religion <- function(code) {
   if (code %in% christian_codes) {
@@ -128,39 +114,37 @@ recode_religion <- function(code) {
   }
 }
 
+# Vectorize the function to allow column-wise application
+recode_religion_vec <- Vectorize(recode_religion)
+
 # =============================================================
 # Step 3. Apply Cleaning Function to Data
 # -------------------------------------------------------------
 clean_religion_data <- function(df, religion_column) {
   df <- df %>%
+    rename(religion_code = all_of(religion_column)) %>%  # Temporarily rename input column
     mutate(
-      religion = recode_religion(.data[[religion_column]]),  # Apply function
+      religion = recode_religion_vec(religion_code),  # Use vectorized version
       religion = factor(religion, levels = c(
         "Christianity", "Judaism", "Islam", "Eastern Religions",
         "Indigenous & New Religious Movements", "Other", "Nonreligious"
       )),
-      religious_binary = ifelse(religion == "Nonreligious", 0, 1)  # Create binary religion variable
+      religious_binary = ifelse(religion == "Nonreligious", 0, 1)
     ) %>%
-    select(-all_of(religion_column))  # Drop old religion code column
-  
+    dplyr::select(-religion_code)
+
   return(df)
 }
 
 # =============================================================
-# Step 4. Test Cleaning Function
-# -------------------------------------------------------------
-# Example dataset
-df_test <- data.frame(religion_code = c(10, 524, 720, 725, 880, 301, 502, 879))
-df_test <- clean_religion_data(df_test, "religion_code")
-
-# View cleaned data
-print(df_test)
-
-# =============================================================
-# Step 5. Apply to `US_election` Dataset
+# Step 4. Apply to `US_election` Dataset
 # -------------------------------------------------------------
 US_election <- clean_religion_data(US_election, "religion")
 
+
+```
+
+```{r}
 # Remove missing values
 US_election <- na.omit(US_election)
 
@@ -169,47 +153,28 @@ summary(US_election$religion)
 summary(US_election$religious_binary)
 
 
-
-# Group religion categories
+# Step 1: Create new collapsed religion group
 US_election <- US_election %>%
-  mutate(religion_grouped = religion) %>%  # Copy original religion column
-  mutate(religion_grouped = case_when(
-    religion %in% c("Judaism", "Islam", "Eastern Religions", 
-                    "Indigenous & New Religious Movements", "Other") ~ "Minority Religion",
-    TRUE ~ religion  # Keep Christianity & Nonreligious unchanged
-  )) %>%
-  mutate(religion_grouped = factor(religion_grouped, 
-                                   levels = c("Christianity", "Nonreligious", "Minority Religion")))
+  mutate(
+    religion_group = case_when(
+      religion == "Christianity" ~ "Christian",
+      religion == "Nonreligious" ~ "Non-religion",
+      religion %in% c(
+        "Judaism", "Islam", "Eastern Religions",
+        "Indigenous & New Religious Movements", "Other"
+      ) ~ "Other religions",
+      TRUE ~ NA_character_
+    ),
+    religion_group = factor(religion_group, levels = c("Christian", "Other religions", "Non-religion"))
+  )
 
-# Remove missing values
-US_election <- na.omit(US_election)
 
-# Check results
-summary(US_election$religion_grouped)
-table(US_election$religion_grouped)
 
 ```
 
-```{r clean the religion}
-
-US_election  <- US_election %>%
-  filter(if_all(-c(V200010c, V200010d, weight, religion), ~ . >= 0))
-
-
-
-#create new variable for religest and non-religoon
-US_election <- clean_religion_data(US_election, "religion")
-US_election$religious_binary <- ifelse(US_election$religion== "Nonreligious", 0, 1)
-
-#remove the na
-US_election <- US_election[!is.na(US_election$religious_binary), ]
-
-US_election <- na.omit(US_election)
-```
 
 ```{r clean the view for the transgender policy}
 
-US_election
 
 # Convert the variable into an ordered factor
 US_election$transgender_policy<- factor(
@@ -299,18 +264,28 @@ US_election <- na.omit(US_election)
 
 ```{R}
 
-# Clean party_hand_tax variable
- US_election <-  US_election %>%
-  mutate(party_hand_tax = as.numeric(party_hand_tax)) %>%  # Convert to numeric
-  filter(party_hand_tax >= 1 & party_hand_tax <= 5)  # Keep only valid values
+# Step 1: Ensure numeric and keep valid values
+US_election <- US_election %>%
+  mutate(party_hand_tax = as.numeric(party_hand_tax)) %>%
+  filter(party_hand_tax >= 1 & party_hand_tax <= 5)
 
-# Convert to an ordered factor (useful for ordinal logistic regression)
- US_election$party_hand_tax <- factor( US_election$party_hand_tax, levels = 1:5, ordered = TRUE)
+# Step 2: Collapse into 3 groups
+US_election <- US_election %>%
+  mutate(
+    party_hand_tax_group = case_when(
+      party_hand_tax %in% c(1, 2) ~ "Democratic",
+      party_hand_tax == 3        ~ "No difference",
+      party_hand_tax %in% c(4, 5) ~ "Republican",
+      TRUE ~ NA_character_
+    ),
+    party_hand_tax_group = factor(party_hand_tax_group, levels = c("Democratic", "No difference", "Republican"))
+  )
 
-# Check summary
-summary( US_election$party_hand_tax)
-
+# Step 3: Remove any remaining NAs (if needed)
 US_election <- na.omit(US_election)
+
+# Step 4: Check summary
+summary(US_election$party_hand_tax_group)
 
 ```
 
@@ -480,7 +455,7 @@ data <- US_election
 categorical_vars <- c("transgender_policy", "tax_on_millionaries", "government_waste_tax_money", 
                       "edu_summary", "party_hand_tax", "illegel_immiggration", 
                       "Lgbgt_job_discrimination", "race", "gay_marriaige", "gay_adopt", 
-                      "income", "transgender_policy", "religious_binary")
+                      "income", "transgender_policy", "religious_binary", "religions_group")
 
 # Loop to create bar plots for each categorical variable
 for (var in categorical_vars) {
@@ -503,18 +478,47 @@ for (var in categorical_vars) {
 ```{R Model 1: Two-Stage Ordinal Logistic Regression (Focus on Race)}
 
 
+US_election$trans_support_score <- as.numeric(factor(
+  US_election$transgender_policy,
+  levels = c("Very Strongly Against", "Moderately Against", "Slightly Against",
+             "Slightly In Favor", "Moderately In Favor", "Very Strongly In Favor"),
+  labels = c(1, 2, 3, 4, 5, 6)
+))
+
+US_election$gay_marriage_score <- dplyr::recode(US_election$gay_marriaige,
+                                          "No Recognition" = 0,
+                                          "Civil Union Only" = 1,
+                                          "Legal Marriage" = 2)
+
+#transfer it to the number
+US_election$trans_support_score <- as.numeric(as.character(US_election$trans_support_score))
+US_election$job_discrim_score <- as.numeric(as.character(US_election$Lgbgt_job_discrimination))
+US_election$gay_marriage_score <- as.numeric(as.character(US_election$gay_marriage_score))
+US_election$gay_adopt_score <- as.numeric(as.character(US_election$gay_adopt))
+
+
+
+US_election$LGBT_friendly <- with(US_election, 
+  trans_support_score + 
+  Lgbgt_job_discrimination + 
+  gay_marriage_score + 
+  gay_adopt)
+
+
+
+
+table(US_election$LGBT_friendly_group)
+hist(US_election$LGBT_friendly, breaks = 10, main = "LGBT Support Score")
+
+
+
+
+
+
 #remove the NA value
 US_election <- na.omit(US_election)
 
-US_election$income_grouped <- cut(US_election$income,  breaks = 5, labels = c("Low", "Lower-Mid", "Mid", "Upper-Mid", "High"))
-
-US_election$religion_grouped <- US_election$religion
-US_election$religion_grouped[US_election$religion %in% c("Judaism", "Islam", "Eastern Religions", 
-                                                         "Indigenous & New Religious Movements", "Other")] <- "Minority Religion"
-
-
-
-table(US_election$race, US_election$religion)
+table(US_election$race, US_election$religion_group)
 
 
 design <- svydesign(
@@ -525,18 +529,50 @@ design <- svydesign(
   nest = TRUE            # Ensures PSU is correctly nested within strata
 )
 
+```
 
-
+```{R}
+#The_stage_one
 model1_stage1_tax <- svyolr(government_waste_tax_money ~ race, design = design)
+
+#
+
+#the_stage_two
 model1_stage2_tax <- svyolr(government_waste_tax_money ~ 
                               race + 
-                              religion +
+                              religion_group +
                               tax_on_millionaries + 
                               edu_summary +
-                              party_hand_tax + 
-                              income, design = design)
+                              party_hand_tax_group + 
+                              income_grouped +
+                              illegel_immiggration, design = design)
+
+
+summary(model1_stage1_tax)
+summary(model1_stage2_tax)
+#note: the race has the impact but not a lot
+
+
+######
+#regression_two race vs LGBTQ
+model2_stage1_LGBTQ_trans <-
+  
+
+
+
+
+# List of categorical variables to plot
+categorical_vars <- c("transgender_policy", "tax_on_millionaries", "government_waste_tax_money", 
+                      "edu_summary", "party_hand_tax", "illegel_immiggration", 
+                      "Lgbgt_job_discrimination", "race", "gay_marriaige", "gay_adopt", 
+                      "income", "transgender_policy", "religious_binary", "religions_group")
+
+
+
 
 library(car)
+
+#robusted test
 vif_values <- vif(model1_stage2_tax)
 print(vif_values)
 
