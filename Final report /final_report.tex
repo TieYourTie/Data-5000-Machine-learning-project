@@ -1,0 +1,568 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+\begin{document}
+
+\title{Econ 5880W Assignment Two}
+\author{Tie Ma}
+\date{March 24, 2025}
+\maketitle
+
+\section{Results}
+Note for tyler: I have included the full regression output in the appendix. The key findings are summarized below.
+\begin{itemize}
+    \item \textbf{Note:} make sure do not say the things that sound like causality, the only things this function can do it to tell you corrlations.
+    \item  \textbf{Note:} corrlation does not mean causality!
+\end{itemize}
+
+
+\subsection{Some mathmatically detail}
+
+This section are the kind of ish findning from two ordered logistic regression model predictiing the likelyhood
+of that respondents belive the government waste tax money base on their self-identifiy race in the dataset. 
+
+The model were estimated using the survery-weighted orinal logistic regression from the package Survey.
+Such package is terrible on proform some more advanced statstic method which are the reason only ordinal regression with used. 
+
+The reason I choose ordinal regression is because the dependent variable is ordinal with three ordered levels: "Waste a lot", "Waste some", and "Don't waste very much".
+
+now, lets move on to the results.
+
+
+
+\subsection{Fancy math time}
+The ordered logistic regression dmoels are used in this study to exam the predictos of attitudes toward LGBT-friendly policies view on how good goernment handel tex.
+The mathamtically expample here are using LGBT...
+
+The ordered logistic regression models are used to examine predictors of attitudes toward LGBT-friendly policies, where the dependent variable \( Y_i \) represents the ordinal response category of LGBT support (e.g., ``Low Support'', ``Moderate Support'', ``High Support'').
+
+We assume a latent continuous variable \( Y_i^* \) underlying this ordinal response:
+
+what is latent continuous variable? because the variabl we where using is ordinal, but we assume it is continuous.
+
+
+\[
+Y_i^* = \mathbf{X}_i \boldsymbol{\beta} + \varepsilon_i, \quad \varepsilon_i \sim \text{Logistic}(0,1)
+\]
+
+
+The observed outcome \( Y_i \in \{1, 2, 3\} \) is related to the latent variable through thresholds:
+
+\[
+Y_i = 
+\begin{cases}
+1 & \text{if } Y_i^* \leq \tau_1 \quad \text{(``Low Support'')} \\
+2 & \text{if } \tau_1 < Y_i^* \leq \tau_2 \quad \text{(``Moderate Support'')} \\
+3 & \text{if } Y_i^* > \tau_2 \quad \text{(``High Support'')} \\
+\end{cases}
+\]
+
+
+
+
+\subsubsection*{Stage 1: Baseline Model(race)}
+
+
+The baseline model includes only race or income as a predictor:
+
+\[
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j - \beta_1 \cdot \text{race}_i \quad \text{for } j = 1, 2
+\]
+
+
+This corresponds to the R model:
+
+\begin{verbatim}
+model2_stage1_LGBTQ_trans <- svyolr(LGBT_friendly_group ~ race, design = design)
+\end{verbatim}
+
+\subsubsection*{Stage 2: Full Model}
+
+The full model includes multiple sociodemographic, attitudinal, and political predictors:
+
+\[
+\begin{aligned}
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j 
+& - \beta_1 \cdot \text{race}_i 
+- \beta_2 \cdot \text{religion\_group}_i 
+- \beta_3 \cdot \text{tax\_on\_millionaires}_i \\
+& - \beta_4 \cdot \text{edu\_summary}_i
+- \beta_5 \cdot \text{party\_hand\_tax\_group}_i 
+- \beta_6 \cdot \text{income\_grouped}_i \\
+& - \beta_7 \cdot \text{illegal\_immigration}_i
+- \beta_8 \cdot \text{government\_waste\_tax\_money}_i
+\end{aligned}
+\]
+
+This model is estimated in R as:
+
+\begin{verbatim}
+model2_stage2_LGBTQ_trans <- svyolr(LGBT_friendly_group ~ 
+  race + religion_group + tax_on_millionaries + 
+  edu_summary + party_hand_tax_group + 
+  income_grouped + illegel_immiggration + 
+  government_waste_tax_money, design = design)
+\end{verbatim}
+
+Both models are estimated using survey-weighted ordinal logistic regression via the \texttt{svyolr()} function, accounting for complex survey design.
+
+
+
+\subsection{Stage One: Baseline Model}
+
+The baseline model includes only one independent variable, \textbf{race}:
+
+\begin{table}[H]
+    \centering
+    \caption{Stage One Ordered Logistic Regression Model (Race Only), df = 50\\
+    \footnotesize Note: * $p < .05$, ** $p < .01$, *** $p < .001$}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    race & 0.0235 & 0.0285 & 0.8249 \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Waste a lot | Waste some & 0.8430 & 0.0647 & 13.0377*** \\
+    Waste some | Don’t waste very much & 3.5492 & 0.1280 & 27.7230*** \\
+    \hline
+    \end{tabular}
+\end{table}
+    
+    
+
+\noindent
+The coefficient for race is positive but statistically insignificant (\textit{t} = 0.82), indicating that race alone does not significantly predict perceived government waste. The intercepts represent the thresholds between the latent categories.
+
+
+\subsection{Model 2: Full Model with All Predictors}
+
+\begin{table}[H]
+    \centering
+    \caption{Model 2: Full Ordered Logistic Regression with Sociodemographics and Attitudes (df = 31)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    race & 0.0124 & 0.0275 & 0.451 \\
+    religion\_group: Other religions & -0.0877 & 0.1539 & -0.570 \\
+    religion\_group: Non-religion & -0.2284 & 0.1092 & -2.091* \\
+    tax\_on\_millionaries.L & 0.1961 & 0.0843 & 2.326* \\
+    tax\_on\_millionaries.Q & 0.1889 & 0.0838 & 2.253* \\
+    edu\_summary.L & 0.1550 & 0.1610 & 0.963 \\
+    edu\_summary.Q & 0.4062 & 0.1154 & 3.519** \\
+    edu\_summary.C & 0.0387 & 0.1004 & 0.385 \\
+    edu\_summary$^4$ & -0.0200 & 0.0768 & -0.261 \\
+    party\_hand\_tax\_group: No difference & -0.2187 & 0.1029 & -2.127* \\
+    party\_hand\_tax\_group: Republican & -0.2835 & 0.1295 & -2.189* \\
+    income\_grouped: Lower-Mid & -0.2353 & 0.1183 & -1.989$^\dagger$ \\
+    income\_grouped: Mid & -0.4068 & 0.1375 & -2.959** \\
+    income\_grouped: Upper-Mid & -0.2957 & 0.1207 & -2.450* \\
+    income\_grouped: High & -0.1042 & 0.1560 & -0.668 \\
+    illegal\_immigration.L & -0.0026 & 0.1049 & -0.024 \\
+    illegal\_immigration.Q & 0.1218 & 0.1058 & 1.152 \\
+    illegal\_immigration.C & 0.1229 & 0.0765 & 1.605 \\
+    LGBT\_friendly\_group: Moderate Support & 0.0305 & 0.2322 & 0.131 \\
+    LGBT\_friendly\_group: High Support & 0.3993 & 0.2195 & 1.819$^\dagger$ \\
+    \hline
+    \textbf{Intercepts} & & & \\
+    \hline
+    Waste a lot $|$ Waste some & 0.4682 & 0.2649 & 1.7674$^\dagger$ \\
+    Waste some $|$ Don’t waste very much & 3.2184 & 0.2996 & 10.7431*** \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$, $^\dagger$ marginal ($p \approx 0.07$)} \\
+    \end{tabular}
+\end{table}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{RACE-LGBT support Stage One: Baseline Model}
+
+The baseline model includes only race as the predictor:
+
+\[
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j - \beta_1 \cdot \text{race}_i
+\]
+
+\vspace{0.5em}
+\noindent
+\textbf{R Output:}
+\begin{table}[H]
+    \centering
+    \caption{Ordered Logistic Regression: Support for Policy by Race (df = 50)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    race & 0.0445 & 0.0263 & 1.691 \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Low Support $|$ Moderate Support & -3.1955 & 0.0992 & -32.218*** \\
+    Moderate Support $|$ High Support & 0.1398 & 0.0543 & 2.575* \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$} \\
+    \end{tabular}
+\end{table}
+
+
+\noindent
+\textbf{Interpretation:} The coefficient for race is positive but only marginally significant (\( t = 1.69 \)), suggesting a weak association between race and LGBT policy support in this model. The thresholds indicate that most responses cluster in the upper categories (moderate or high support).
+
+\subsection{Stage Two: Full Model}
+
+We now include a broader set of predictors:
+
+\[
+\begin{aligned}
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j 
+& - \beta_1 \cdot \text{race}_i 
+- \beta_2 \cdot \text{religion\_group}_i 
+- \beta_3 \cdot \text{tax\_on\_millionaires}_i \\
+& - \beta_4 \cdot \text{edu\_summary}_i
+- \beta_5 \cdot \text{party\_hand\_tax\_group}_i 
+- \beta_6 \cdot \text{income\_grouped}_i \\
+& - \beta_7 \cdot \text{illegel\_immiggration}_i
+- \beta_8 \cdot \text{government\_waste\_tax\_money}_i
+\end{aligned}
+\]
+
+\vspace{0.5em}
+\noindent
+\textbf{Key R Output:}
+\begin{table}[H]
+    \centering
+    \caption{Ordered Logistic Regression: Support for Policy (df = 31)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    race & -0.0371 & 0.0287 & -1.295 \\
+    religion\_group: Other religions & 0.7848 & 0.2099 & 3.739*** \\
+    religion\_group: Non-religion & 0.1086 & 0.1243 & 0.874 \\
+    tax\_on\_millionaries.L & -0.3366 & 0.0715 & -4.705*** \\
+    tax\_on\_millionaries.Q & 0.2759 & 0.0811 & 3.405** \\
+    edu\_summary.L & 0.5683 & 0.1411 & 4.029*** \\
+    edu\_summary.Q & 0.1460 & 0.1176 & 1.242 \\
+    edu\_summary.C & -0.2753 & 0.0892 & -3.086** \\
+    edu\_summary$^4$ & -0.0837 & 0.0793 & -1.056 \\
+    party\_hand\_tax\_group: No difference & -0.4290 & 0.1045 & -4.104*** \\
+    party\_hand\_tax\_group: Republican & -1.3100 & 0.0981 & -13.354*** \\
+    income\_grouped: Lower-Mid & 0.0023 & 0.1184 & 0.020 \\
+    income\_grouped: Mid & 0.0797 & 0.1221 & 0.652 \\
+    income\_grouped: Upper-Mid & 0.2117 & 0.1310 & 1.615 \\
+    income\_grouped: High & 0.2905 & 0.1733 & 1.677$^\dagger$ \\
+    illegel\_immiggration.L & 0.9685 & 0.1138 & 8.510*** \\
+    illegel\_immiggration.Q & 0.1455 & 0.0889 & 1.636 \\
+    illegel\_immiggration.C & 0.0348 & 0.1060 & 0.328 \\
+    government\_waste\_tax\_money.L & 0.3918 & 0.2016 & 1.943$^\dagger$ \\
+    government\_waste\_tax\_money.Q & -0.0338 & 0.1320 & -0.256 \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Low Support $|$ Moderate Support & -4.2973 & 0.1836 & -23.400*** \\
+    Moderate Support $|$ High Support & -0.5041 & 0.1512 & -3.334** \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$, $^\dagger$ marginal ($p \approx 0.07$)} \\
+    \end{tabular}
+\end{table}
+    
+
+\noindent
+\textbf{Interpretation of Key Findings:}
+\begin{itemize}
+  \item \textbf{Religion:} Those identifying with ``Other religions'' are significantly more supportive of LGBT-friendly policies.
+  
+  \item \textbf{Taxation Attitudes:} There is a nonlinear effect—those with moderate support for taxing millionaires show more LGBT support, but strong support may reduce it.
+  
+  \item \textbf{Education:} The linear and cubic terms are significant, indicating a complex nonlinear relationship with LGBT attitudes.
+  
+  \item \textbf{Party Identification:} Compared to Democrats, Republicans are significantly less supportive of LGBT-friendly policies. Those who perceive ``no difference'' between parties also show lower support.
+  
+  \item \textbf{Immigration Attitudes:} Strong concerns about illegal immigration are positively associated with LGBT support—possibly reflecting complex ideology clusters.
+  
+  \item \textbf{Race, Income, Government Waste:} These variables were not significant in the full model.
+\end{itemize}
+
+\noindent
+These results suggest that support for LGBT policies is shaped by a mix of religious, economic, political, and educational attitudes—independent of race or income alone.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{income-tax}
+
+\subsection{Stage One: Income-Only Model}
+
+This model estimates the likelihood that respondents believe the government wastes tax money, based solely on income group:
+
+\[
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j - \beta_1 \cdot \text{income\_grouped}_i
+\]
+
+\begin{table}[H]
+    \centering
+    \caption{Ordered Logistic Regression Model: Income Groups Only (df = 47)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    income\_grouped: Lower-Mid & -0.2560 & 0.1132 & -2.261* \\
+    income\_grouped: Mid & -0.4092 & 0.1320 & -3.101** \\
+    income\_grouped: Upper-Mid & -0.2676 & 0.1083 & -2.470* \\
+    income\_grouped: High & -0.0190 & 0.1314 & -0.145 \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Waste a lot $|$ Waste some & 0.5909 & 0.0912 & 6.477*** \\
+    Waste some $|$ Don’t waste very much & 3.3027 & 0.1823 & 18.121*** \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$} \\
+    \end{tabular}
+\end{table}
+
+    
+
+\noindent
+\textbf{Interpretation:} Middle and upper-middle income respondents are significantly more likely to believe that the government wastes tax money. The highest income group shows no significant difference compared to the reference (lowest) group.
+
+\subsection{Stage Two: Full Model with Income and Controls}
+
+We now control for additional demographic and attitudinal predictors:
+
+\[
+\begin{aligned}
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j &- \beta_1 \cdot \text{race}_i 
+- \beta_2 \cdot \text{religion\_group}_i 
+- \beta_3 \cdot \text{tax\_on\_millionaires}_i \\
+&- \beta_4 \cdot \text{edu\_summary}_i 
+- \beta_5 \cdot \text{party\_hand\_tax\_group}_i 
+- \beta_6 \cdot \text{income\_grouped}_i \\
+&- \beta_7 \cdot \text{illegel\_immiggration}_i 
+- \beta_8 \cdot \text{LGBT\_friendly\_group}_i
+\end{aligned}
+\]
+
+\textbf{Key R Output:}
+\begin{table}[H]
+    \centering
+    \caption{Ordered Logistic Regression: Income and Attitudes Model (df = 31)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    race & 0.0124 & 0.0275 & 0.451 \\
+    religion\_group: Other religions & -0.0877 & 0.1539 & -0.570 \\
+    religion\_group: Non-religion & -0.2284 & 0.1092 & -2.091* \\
+    tax\_on\_millionaries.L & 0.1961 & 0.0843 & 2.326* \\
+    tax\_on\_millionaries.Q & 0.1889 & 0.0838 & 2.253* \\
+    edu\_summary.L & 0.1550 & 0.1610 & 0.963 \\
+    edu\_summary.Q & 0.4062 & 0.1154 & 3.519** \\
+    edu\_summary.C & 0.0387 & 0.1004 & 0.385 \\
+    edu\_summary$^4$ & -0.0200 & 0.0768 & -0.261 \\
+    party\_hand\_tax\_group: No difference & -0.2187 & 0.1029 & -2.127* \\
+    party\_hand\_tax\_group: Republican & -0.2835 & 0.1295 & -2.189* \\
+    income\_grouped: Lower-Mid & -0.2353 & 0.1183 & -1.989$^\dagger$ \\
+    income\_grouped: Mid & -0.4068 & 0.1375 & -2.959** \\
+    income\_grouped: Upper-Mid & -0.2957 & 0.1207 & -2.450* \\
+    income\_grouped: High & -0.1042 & 0.1560 & -0.668 \\
+    illegel\_immiggration.L & -0.0026 & 0.1049 & -0.024 \\
+    illegel\_immiggration.Q & 0.1218 & 0.1058 & 1.152 \\
+    illegel\_immiggration.C & 0.1229 & 0.0765 & 1.605 \\
+    LGBT\_friendly\_group: Moderate Support & 0.0305 & 0.2322 & 0.131 \\
+    LGBT\_friendly\_group: High Support & 0.3993 & 0.2195 & 1.819$^\dagger$ \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Waste a lot $|$ Waste some & 0.4682 & 0.2649 & 1.767$^\dagger$ \\
+    Waste some $|$ Don’t waste very much & 3.2184 & 0.2996 & 10.743*** \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$, $^\dagger$ marginal ($p \approx 0.07$)} \\
+    \end{tabular}
+ \end{table}
+    
+
+\noindent
+\textbf{Interpretation of Key Findings:}
+\begin{itemize}
+  \item \textbf{Income Effects Persist:} Even after controlling for other variables, middle and upper-middle income respondents are significantly more likely to believe that the government wastes tax money.
+  \item \textbf{Taxation Views:} Those in favor of taxing millionaires are more likely to view the government as wasteful—an interesting paradox.
+  \item \textbf{Party Identification:} Non-Democrats (Republicans and those seeing no party difference) continue to show more distrust toward government spending.
+  \item \textbf{Religion and Education:} Non-religious respondents and those with quadratic levels of education (i.e., mid-education) express greater concern over government waste.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Modeling Support for LGBT-Friendly Policies}
+
+\subsection{Mathematical Model}
+
+We use an ordered logistic regression model to estimate the probability that a respondent expresses higher support for LGBT-friendly policies. The outcome variable \( Y_i \in \{1, 2, 3\} \) is ordinal, where:
+
+\begin{itemize}
+  \item \( Y_i = 1 \): ``Low Support''
+  \item \( Y_i = 2 \): ``Moderate Support''
+  \item \( Y_i = 3 \): ``High Support''
+\end{itemize}
+
+We assume an underlying latent variable \( Y_i^* \) such that:
+
+\[
+Y_i^* = \mathbf{X}_i \boldsymbol{\beta} + \varepsilon_i, \quad \varepsilon_i \sim \text{Logistic}(0,1)
+\]
+
+with observed categories defined by thresholds:
+
+\[
+Y_i = 
+\begin{cases}
+1 & \text{if } Y_i^* \leq \tau_1 \\
+2 & \text{if } \tau_1 < Y_i^* \leq \tau_2 \\
+3 & \text{if } Y_i^* > \tau_2 \\
+\end{cases}
+\]
+
+The proportional odds assumption leads to:
+
+\[
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j - \mathbf{X}_i \boldsymbol{\beta}, \quad j = 1, 2
+\]
+
+All models are estimated using the survey-weighted ordinal logistic regression function \texttt{svyolr()}.
+
+% [previous sections truncated for brevity]
+
+\section{Modeling LGBT Policy Support by Income}
+
+\subsection{Stage One: Income-Only Model}
+
+This model examines the relationship between income group and support for LGBT-friendly policies:
+
+\[
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j - \beta_1 \cdot \text{income\_grouped}_i
+\]
+
+\textbf{R Output:}
+\begin{table}[H]
+    \centering
+    \caption{Ordered Logistic Regression: LGBTQ Support by Income Group (df = 47)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    income\_grouped: Lower-Mid & -0.0449 & 0.1000 & -0.449 \\
+    income\_grouped: Mid & -0.0130 & 0.1065 & -0.122 \\
+    income\_grouped: Upper-Mid & 0.2132 & 0.1137 & 1.874$^\dagger$ \\
+    income\_grouped: High & 0.3637 & 0.1461 & 2.490* \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Low Support $|$ Moderate Support & -3.1758 & 0.1121 & -28.333*** \\
+    Moderate Support $|$ High Support & 0.1676 & 0.0719 & 2.333* \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$, $^\dagger$ marginal ($p \approx 0.07$)} \\
+    \end{tabular}
+\end{table}
+    
+
+\noindent
+\textbf{Interpretation:} Compared to the lowest income group (reference), the highest income group shows significantly greater support for LGBT-friendly policies (\( t = 2.49 \)). The positive trend across income levels suggests increasing support with income, though the lower-mid and mid-income groups show no significant difference from the baseline.
+
+\subsection{Stage Two: Full Model with Income and Controls}
+
+In the full model, we include demographic, political, and attitudinal controls:
+
+\[
+\begin{aligned}
+\log \left( \frac{\Pr(Y_i \leq j)}{\Pr(Y_i > j)} \right) = \tau_j & - \beta_1 \cdot \text{race}_i 
+- \beta_2 \cdot \text{religion\_group}_i 
+- \beta_3 \cdot \text{tax\_on\_millionaires}_i \\
+& - \beta_4 \cdot \text{edu\_summary}_i
+- \beta_5 \cdot \text{party\_hand\_tax\_group}_i
+- \beta_6 \cdot \text{income\_grouped}_i \\
+& - \beta_7 \cdot \text{illegel\_immiggration}_i
+- \beta_8 \cdot \text{government\_waste\_tax\_money}_i
+\end{aligned}
+\]
+
+\textbf{Key R Output:}
+\begin{table}[H]
+    \centering
+    \caption{Ordered Logistic Regression: LGBTQ Support by Income and Attitudes (df = 31)}
+    \begin{tabular}{lccc}
+    \hline
+    \textbf{Predictor} & \textbf{Coefficient} & \textbf{Std. Error} & \textbf{t value} \\
+    \hline
+    race & -0.0371 & 0.0287 & -1.295 \\
+    religion\_group: Other religions & 0.7848 & 0.2099 & 3.739*** \\
+    religion\_group: Non-religion & 0.1086 & 0.1243 & 0.874 \\
+    tax\_on\_millionaries.L & -0.3366 & 0.0715 & -4.705*** \\
+    tax\_on\_millionaries.Q & 0.2759 & 0.0811 & 3.405** \\
+    edu\_summary.L & 0.5683 & 0.1411 & 4.029*** \\
+    edu\_summary.Q & 0.1460 & 0.1176 & 1.242 \\
+    edu\_summary.C & -0.2753 & 0.0892 & -3.086** \\
+    edu\_summary$^4$ & -0.0837 & 0.0793 & -1.056 \\
+    party\_hand\_tax\_group: No difference & -0.4290 & 0.1045 & -4.104*** \\
+    party\_hand\_tax\_group: Republican & -1.3100 & 0.0981 & -13.354*** \\
+    income\_grouped: Lower-Mid & 0.0023 & 0.1184 & 0.020 \\
+    income\_grouped: Mid & 0.0797 & 0.1221 & 0.652 \\
+    income\_grouped: Upper-Mid & 0.2117 & 0.1310 & 1.615 \\
+    income\_grouped: High & 0.2905 & 0.1733 & 1.677$^\dagger$ \\
+    illegel\_immiggration.L & 0.9685 & 0.1138 & 8.510*** \\
+    illegel\_immiggration.Q & 0.1455 & 0.0889 & 1.636 \\
+    illegel\_immiggration.C & 0.0348 & 0.1060 & 0.328 \\
+    government\_waste\_tax\_money.L & 0.3918 & 0.2016 & 1.943$^\dagger$ \\
+    government\_waste\_tax\_money.Q & -0.0338 & 0.1320 & -0.256 \\
+    \hline
+    \addlinespace[0.5em]
+    \multicolumn{4}{l}{\textbf{Intercepts}} \\
+    \hline
+    Threshold & Value & Std. Error & t value \\
+    \hline
+    Low Support $|$ Moderate Support & -4.2973 & 0.1836 & -23.400*** \\
+    Moderate Support $|$ High Support & -0.5041 & 0.1512 & -3.334** \\
+    \hline
+    \multicolumn{4}{l}{\textit{Note:} * $p < .05$, ** $p < .01$, *** $p < .001$, $^\dagger$ marginal ($p \approx 0.07$)} \\
+    \end{tabular}
+\end{table}
+    
+
+\noindent
+\textbf{Interpretation of Key Findings:}
+\begin{itemize}
+  \item \textbf{Income Effects Weaken:} Once other covariates are included, the significance of income weakens. Only upper-middle and high-income groups approach significance (\( t \approx 1.6{-}1.8 \)).
+  \item \textbf{Religion:} Individuals from ``Other religions'' remain significantly more supportive of LGBT policies.
+  \item \textbf{Taxing Millionaires:} Again shows a nonlinear relationship—linear support is negatively associated while the quadratic term is positive.
+  \item \textbf{Education:} A complex relationship appears, with linear and cubic terms significant.
+  \item \textbf{Party Identification:} Republicans and those perceiving no party difference are less supportive than Democrats.
+  \item \textbf{Immigration Attitudes:} More concern over illegal immigration is positively associated with LGBT support.
+  \item \textbf{Government Waste Attitudes:} Greater belief that the government wastes tax money is associated with higher support for LGBT policies—suggesting ideological complexity.
+\end{itemize}
+
+
+
+
+
+\end{document}
