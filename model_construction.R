@@ -179,7 +179,7 @@ design <- svydesign(
 
 
 
-model1_stage1_tax <- (government_waste_tax_money ~ race, design = design, family = quasipoisson())
+model1_stage1_tax <- (government_waste_tax_money ~ race, design = design)
 
 
 model_race_1 <- svyolr(factor(government_waste_tax_money) ~ factor(race), design = design)

@@ -26,7 +26,8 @@ raw <- load("~/Documents/GitHub/Data-5000-Machine-learning-project/moeding_data.
 ####check the data #####
 #display the dataset
 #head(raw)
-
+#update: this is the final cleaning processing
+########################
 
 
 #9.plot_the_grap###############################
@@ -57,13 +58,25 @@ for (var in categorical_vars) {
 }
 
 
+################################################
+#10.The model construction
+################################################
 
-#10.The model construction######################
+# Clean race variable in US_election dataset
+US_election <- US_election %>%
+  mutate(race = as.numeric(race)) %>%  # Convert to numeric
+  filter(race >= 1 & race <= 6)  # Keep only valid values
 
-#remove the NA value
-US_election <- na.omit(US_election)
+# Convert to a factor for categorical analysis
+US_election$race <- factor(US_election$race, 
+                           levels = 1:6, 
+                           labels = c("White", "Black", "Hispanic", 
+                                      "Asian/Pacific Islander", 
+                                      "Native American/Alaska Native", 
+                                      "Multiple Races"))
 
-table(US_election$race, US_election$religion_group)
+# Check summary
+summary(US_election$race)
 
 #note:here is using the package called Svyry which is a shit package designed 
 #for the survery data? god bless me
@@ -87,9 +100,6 @@ design <- svydesign(
 #income_grouped
 #LGBT_friendly_group
 #religion_group
-
-
-##Race
 ############################################################################
 #regression_once race vs government waste tax money
 ############################################################################
@@ -111,8 +121,10 @@ model1_stage2_tax <- svyolr(government_waste_tax_money ~
 
 
 
-summary(model1_stage1_tax)$df
+summary(model1_stage1_tax)
 summary(model1_stage2_tax)
+summary(model1_stage1_tax)$df
+summary(model1_stage2_tax)$df
 ############################################################################
 #regression_two race vs LGBTQ
 ############################################################################
@@ -130,14 +142,17 @@ model2_stage2_LGBTQ_trans  <- svyolr(LGBT_friendly_group ~
                                        government_waste_tax_money,
                                      design = design)
 
+summary(model2_stage1_LGBTQ_trans)
 summary(model2_stage2_LGBTQ_trans)
+summary(model2_stage1_LGBTQ_trans)$df
+summary(model2_stage2_LGBTQ_trans)$df
 ##income
 ############################################################################
 #income - government waste money
 ############################################################################
 model3_stage1_income <- svyolr(government_waste_tax_money ~ income_grouped, design = design)
 
-summary(model3_stage1_income )
+
 #
 
 #the_stage_two
@@ -152,7 +167,10 @@ model3_stage2_income <- svyolr(government_waste_tax_money ~
                                  LGBT_friendly_group, 
                                design = design)
 
-summary(model3_stage2_income)
+summary(model3_stage1_income)
+summary(model3_stage2_income )
+summary(model3_stage1_income) $df
+summary(model3_stage2_income )$df
 
 ############################################################################
 #income vs LGBTQ
@@ -168,15 +186,41 @@ model3_stage2_LGBTQ_income  <- svyolr(LGBT_friendly_group ~
                                         income_grouped +
                                         illegel_immiggration +
                                         government_waste_tax_money,
-                                      design = design)
+                                        design = design)
 
 summary(model3_stage1_LGBTQ_income)
-summary(model3_stage2_LGBTQ_income )
+summary(model3_stage2_LGBTQ_income)
+summary(model3_stage1_LGBTQ_income) $df
+summary(model3_stage2_LGBTQ_income) $df
 
+############################################################################
+install.packages(ggeffects)
+library(ggeffects)
+pred1 <- ggpredict(model3_stage1_LGBTQ_income, terms = "income_grouped")
+plot(pred1) + ggtitle("收入 vs 支持 LGBTQ 群体的态度")
+
+pred2 <- ggpredict(model3_stage2_LGBTQ_income, terms = "income_grouped")
+plot(pred2) + ggtitle("控制变量后：收入 vs LGBTQ 态度")
 
 
 ############################################################################
+model4_stage1_tax_on_millionaries <- svyolr(tax_on_millionaries ~ income_grouped, design = design)
 
+model4_stage2_tax_on_millionaries <- svyolr(tax_on_millionaries ~  
+                                        LGBT_friendly_group + 
+                                        race + 
+                                        religion_group +
+                                        edu_summary +
+                                        party_hand_tax_group + 
+                                        income_grouped +
+                                        illegel_immiggration +
+                                        government_waste_tax_money,
+                                      design = design)
+
+summary(model4_stage1_tax_on_millionaries )
+summary(model4_stage2_tax_on_millionaries )
+summary(model4_stage1_tax_on_millionaries )$df
+summary(model4_stage2_tax_on_millionaries )$df
 
 
 
